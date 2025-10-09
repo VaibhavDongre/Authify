@@ -1,5 +1,6 @@
 package com.learning.authify.config;
 
+import com.learning.authify.filter.JwtRequestFilter;
 import com.learning.authify.service.AppUserDetailService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
@@ -15,6 +16,7 @@ import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.CorsConfigurationSource;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
@@ -29,15 +31,26 @@ public class SecurityConfig {
 
     private final AppUserDetailService appUserDetailService;
 
+    private final JwtRequestFilter jwtRequestFilter;
+
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception{
+        //CORS (Cross-Origin Resource Sharing)
+        //allows requests from other origins
         http.cors(Customizer.withDefaults())
+                //Disables CSRF protection — commonly done for stateless REST APIs (like JWT-based ones).
+                //CSRF is needed for web forms, not APIs.
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(auth -> auth
+                        //The listed paths (/login, /register, etc.) are publicly accessible
                         .requestMatchers("/login", "/register", "/send-reset-otp", "/reset-password", "/logout")
+                        //All other endpoints require authentication
                         .permitAll().anyRequest().authenticated())
+                //No session is stored on the server — perfect for JWT-based authentication, since all state is carried in the token.
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .logout(AbstractHttpConfigurer::disable);
+                //logout manually in your controller (e.g., by deleting/invalidating a JWT).
+                .logout(AbstractHttpConfigurer::disable)
+                .addFilterBefore(jwtRequestFilter, UsernamePasswordAuthenticationFilter.class);
         return http.build();
     }
     
@@ -46,6 +59,7 @@ public class SecurityConfig {
         return new BCryptPasswordEncoder();
     }
 
+    //Defines a CORS filter to handle cross-origin requests (frontend running on another port/domain)
     @Bean
     public CorsFilter corsFilter() {
         return new CorsFilter(corsConfigurationSource());
@@ -58,7 +72,9 @@ public class SecurityConfig {
         config.setAllowedHeaders(List.of("Authorization", "Content-Type"));
         config.setAllowCredentials(true);
 
+//      apply to all incoming requests(from backend)
         UrlBasedCorsConfigurationSource source = new UrlBasedCorsConfigurationSource();
+//      is used to store and manage the CORS configuration for various URL patterns.
         source.registerCorsConfiguration("/**", config);
         return source;
     }
@@ -67,7 +83,9 @@ public class SecurityConfig {
     public AuthenticationManager authenticationManager() {
         DaoAuthenticationProvider authenticationProvider = new DaoAuthenticationProvider();
         authenticationProvider.setUserDetailsService(appUserDetailService);
+        //ensures it can correctly compare the encrypted (BCrypt) password
         authenticationProvider.setPasswordEncoder(passwordEncoder());
+        //manages multiple providers
         return new ProviderManager(authenticationProvider);
     }
 }
