@@ -6,6 +6,7 @@ import com.learning.authify.io.ProfileResponse;
 import com.learning.authify.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
@@ -28,6 +29,13 @@ public class ProfileServiceImp implements ProfileService{
             return convertToProfileResponse(newProfile);
         }
         throw new ResponseStatusException(HttpStatus.CONFLICT,"Email already exists");
+    }
+
+    @Override
+    public ProfileResponse getProfile(String email) {
+        UserEntity existingUser = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UsernameNotFoundException("User not found: " + email));
+        return convertToProfileResponse(existingUser);
     }
 
 
