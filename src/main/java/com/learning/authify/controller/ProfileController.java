@@ -2,6 +2,7 @@ package com.learning.authify.controller;
 
 import com.learning.authify.io.ProfileRequest;
 import com.learning.authify.io.ProfileResponse;
+import com.learning.authify.service.EmailService;
 import com.learning.authify.service.ProfileService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -15,10 +16,12 @@ public class ProfileController {
 
     private final ProfileService profileService;
 
+    private final EmailService emailService;
+
     @PostMapping("/register")
     public ProfileResponse register(@Valid @RequestBody ProfileRequest request) {
         ProfileResponse response = profileService.createProfile(request);
-        //TODO: send welcome email
+        emailService.sendWelcomeEmail(response.getEmail(), response.getName());
         return response;
     }
 
